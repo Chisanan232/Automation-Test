@@ -22,7 +22,6 @@ import os
 
 
 class Parameter:
-    '''Define our variable'''
     def __init__(self, finish_path, gmail_user, gmail_password, recipient):
         self.finish_path = finish_path
         self.gmail_user = gmail_user
@@ -30,7 +29,7 @@ class Parameter:
         self.recipient = recipient
 
 
-class Divide_Data:
+class DivideData:
     def divide_data(self, target_file, thread_num, wait_deal_file_dir):
         target_pd = pd.DataFrame(pd.read_csv(target_file))
 
@@ -43,8 +42,7 @@ class Divide_Data:
         print('----------Data has been divided success.----------')
 
 
-class Protect_Measure:
-    '''Get user agent to request we want to crawl data of url'''
+class ProtectMeasure:
     def get_header(self):
         user_agent = [
             # Samsung Galaxy S8
@@ -88,19 +86,29 @@ class Protect_Measure:
         return header
 
 
-    '''Get the proxy to hide my owner ip to avoid be locked.'''
     def get_proxy(self):
         # please CHECK your proxy can be used or not.
         proxies = [
             '5.133.27.55:3129'
                  ]
-        proxy = {'http': 'http://' + random.choice(proxies)}
+        proxy = {
+            'http': 'http://' + random.choice(proxies)
+            # 'https': 'https://' + random.choice(proxies)
+        }
         return proxy
 
 
-'''Get some we need conditions like driver, user agent, proxy .etc to run program to get data'''
-class Get_Condition(Protect_Measure):
-    '''Depend on what the variable input to choose what the driver we should be to start.'''
+'''
+Get some we need conditions like driver, user agent, proxy .etc to run program to get data.
+'''
+
+
+class PreventCondition(ProtectMeasure):
+
+    '''
+    Depend on what the variable input to choose what the driver we should be to start.
+    '''
+
     def get_driver(self, web):
     # def get_driver(self, web, options):
         try:
@@ -129,6 +137,10 @@ class Get_Condition(Protect_Measure):
             # else:
             #     print('Not found this driver.')
             '''Second method to get driver'''
+            '''
+            It's a better method with second method. Because it will not be limited by number of threads. If you start
+            with first method, you have to add new elif to deal with increase number of threads every time.
+            '''
             web_string = str(web)
             ans = web_string[-1].isdigit()
             if ans is True:
@@ -142,8 +154,9 @@ class Get_Condition(Protect_Measure):
         except Exception as e:
             print('Error : ', e)
 
-
-    '''To set user agent and proxy with driver'''
+    '''
+    To set user agent and proxy with driver
+    '''
     def option_argument(self):
         options = webdriver.ChromeOptions()
         # header = 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:50.0) Gecko/20100101 Firefox/50.0'
@@ -154,8 +167,9 @@ class Get_Condition(Protect_Measure):
         options.add_argument('--proxy-server=%s' % self.get_proxy())
         return options
 
-
-    '''If this is single process, we will use this function'''
+    '''
+    If this is single process, we will use this function
+    '''
     def get_web(self):
         '''set proxy in selenium'''
         # chrome_options = webdriver.ChromeOptions()
@@ -174,13 +188,20 @@ class Get_Condition(Protect_Measure):
         return browser
 
 
-'''Here are some determine conditions functions'''
-class Prevent_Machinary(Parameter):
+'''
+Here are some determine conditions functions, determine the data we crawled are we need or not, and if it is we want, 
+what we will do, or if not we want, what we will do.
+'''
+
+
+class PreventMachinary(Parameter):
     def __init__(self, finish_path, gmail_user, gmail_password, recipient):
-        super(Prevent_Machinary, self).__init__(finish_path=finish_path, gmail_user=gmail_user, gmail_password=gmail_password, recipient=recipient)
+        super(PreventMachinary, self).__init__(finish_path=finish_path, gmail_user=gmail_user, gmail_password=gmail_password, recipient=recipient)
     
-    
-    '''If address data we want is error or have some problem, execute this functionto save data.'''
+    '''
+    If address data we want is error or have some problem, execute this function to save data to retry or do something 
+    next time.
+    '''
     def no_address(self, un_count, driver_name, address, unaddr_file, browser):
         print('No.' + str(un_count) + ' address with ' + str(driver_name))
         print('this address just in wormhole.')
@@ -201,7 +222,10 @@ class Prevent_Machinary(Parameter):
         # un_count += 1
         # continue
 
-
+    '''
+    Sometimes, we may got strange results like (0, 0), if our data are from USA, it's impossible, so some data kind of 
+    this we call it except address, should be to do something like unknowable address.
+    '''
     def except_address(self, un_count, driver_name, address, data, unaddr_file, browser):
         print('No.' + str(un_count) + ' address with ' + str(driver_name))
         print(address)
@@ -224,8 +248,9 @@ class Prevent_Machinary(Parameter):
         # un_count += 1
         # continue
 
-
-    '''If address data we want is correct, execute this function save data.'''
+    '''
+    If address data we want is correct, then save data.
+    '''
     def address(self, count, driver_name, address, data, data_list, addr_file, browser):
         print('No.' + str(count) + ' address with ' + str(driver_name))
         print(address)
@@ -249,19 +274,21 @@ class Prevent_Machinary(Parameter):
             print('-----------------------------------')
         # count += 1
 
-
-    '''When we get error we running program, set a function to send email to me to tell me error'''
+    '''
+    If we get error when program is running, setting a measure to send error message email to me to tell me error happen.
+    '''
     def error_email(self, error_content, count, driver_name):
         str_error = str(error_content)
-        # remember change your path
         path = str(self.finish_path)
-        '''1. method'''
+
+        '''1. method that if syntax'''
         # if path[-1] == '/':
         #     error_msg = str(self.finish_path) + 'class-24-web-automatic-address-error.txt'
         # else:
         #     error_msg = str(self.finish_path) + '/class-24-web-automatic-address-error.txt'
-        '''2. method'''
-        error_msg = str(self.finish_path) + 'class-24-web-automatic-address-error.txt' if path[-1] == '/' else str(self.finish_path) + '/class-24-web-automatic-address-error.txt'
+        '''2. method that if syntax'''
+        error_msg = str(self.finish_path) + 'web-automatic-address-error.txt' if path[-1] == '/' else str(self.finish_path) + '/web-automatic-address-error.txt'
+
         ef = open(error_msg, 'w+')
         if 'except'in error_content or 'Except'in error_content or 'exception'in error_content or 'Exception'in error_content or 'error'in error_content or 'Error' in error_content:
             ef.write(str_error)
@@ -279,7 +306,7 @@ class Prevent_Machinary(Parameter):
         error = open(error_msg, 'r')
         msg = MIMEText(error.read())
         error.close()
-        msg['Subject'] = 'Python -class24-ver.3- Error with %s' % driver_name
+        msg['Subject'] = 'Python -web-automatic-translate-address.py- Error with %s' % driver_name
         msg['From'] = self.gmail_user
         msg['To'] = self.recipient
 
@@ -289,8 +316,9 @@ class Prevent_Machinary(Parameter):
         server.send_message(msg)
         server.quit()
 
-
-    '''Calculate time from seconds to day-hour-minute-second'''
+    '''
+    Calculate time and translate it from seconds pattern to day-hour-minute-second pattern.
+    '''
     def calculate_time(self, total_time):
         second = total_time % 60
         minute = int(total_time / 60)
@@ -307,16 +335,21 @@ class Prevent_Machinary(Parameter):
         return second, minute, hour, day
 
 
-class Create_File(Parameter):
+class CreateFile(Parameter):
     def __init__(self, finish_path, gmail_user, gmail_password, recipient, target_path_dir):
-        super(Create_File, self).__init__(finish_path=finish_path, gmail_user=gmail_user, gmail_password=gmail_password, recipient=recipient)
+        super(CreateFile, self).__init__(finish_path=finish_path, gmail_user=gmail_user, gmail_password=gmail_password, recipient=recipient)
         self.target_path_dir = target_path_dir
 
-
-    '''Create csv files we need to save data and depend on driver name to get data to run program'''
+    '''
+    Build csv files that save data we get and depend on driver name to run program.
+    '''
     def open_file(self, name):
-        '''We want to super accelerated to get the data we want with selenium, so we divide data and use
-           thread to reach multiprocess to accelerate, this is drivers use their data to do something.'''
+
+        '''
+        We want to super accelerated to get the data we want with selenium, so we divide data and use thread to reach
+        multiprocess to accelerate.
+        '''
+
         ## remember change your path
         # if name == 'chrome':
         #     original_address = self.target_path
@@ -334,11 +367,6 @@ class Create_File(Parameter):
         #     original_address = self.target_path
         name_string = str(name)
         num_file = int(name_string[-3:])
-        '''No.1 method'''
-        # path_string = str(self.target_path_pool[num_file])
-        # if name_string[-3:] == path_string[-7:-4]:
-        #     original_address = self.target_path_pool[num_file]
-        '''No.2 method'''
         path_string = str(os.listdir(self.target_path_dir)[num_file])
         if name_string[-3:] == path_string[-7:-4]:
             original_address = os.path.join(self.target_path_dir, path_string)
@@ -370,11 +398,14 @@ class Create_File(Parameter):
         return line, address_f, unaddress_f, addr_file, unaddr_file
 
 
-'''Main program to get data'''
-'''The class Automatic_Web_Main_Work inherit class Prevent_Machinary, so the class can use the objects \
-   or functions in class Prevent_Machinary'''
-class Automatic_Web_Main_Work(Create_File, Get_Condition, Prevent_Machinary):
-    '''Use selenium to automatic control web'''
+'''Main job in program'''
+'''
+The class AutomaticWebMainWork inherit class PreventMachinary, so the class can use the objects or functions in 
+class PreventMachinary
+'''
+
+
+class AutomaticWebMainWork(CreateFile, PreventCondition, PreventMachinary):
     # def automatic_control_web(self, browser, address, count):
     def automatic_control_web(self, browser, address):
         Wait(browser, 5).until(Except.presence_of_all_elements_located((By.ID, 'source')))
@@ -382,8 +413,10 @@ class Automatic_Web_Main_Work(Create_File, Get_Condition, Prevent_Machinary):
         browser.find_element_by_css_selector('textarea#source').send_keys(address.strip())
         browser.find_element_by_xpath('/html/body/p[4]/input').click()
         # if address.strip() == 'location_name':
-        '''because we change the function in js in original code to accelerate crawler
-           so we can reduce the time of sleep.'''
+        '''
+        Because we change the function in js in source code (below line *****, roughly 500) to accelerate crawler so we can reduce the time 
+        of sleep.
+        '''
         time.sleep(1.0)
         data = browser.find_element_by_css_selector('textarea#target').get_attribute('value')
         '''get the data no.2 method'''
@@ -392,8 +425,9 @@ class Automatic_Web_Main_Work(Create_File, Get_Condition, Prevent_Machinary):
         # new_data = data.split()[0]
         return data
 
-
-    '''Determine the data we got and save date in their csv files'''
+    '''
+    Determine the data we got and save date in their csv files
+    '''
     def main_determine_job(self, browser, driver_name, line, addr_file, unaddr_file):
         count = 1
         un_count = 1
@@ -433,30 +467,26 @@ class Automatic_Web_Main_Work(Create_File, Get_Condition, Prevent_Machinary):
                 fail += 1
                 if fail == 4:
                     break
-
         return count, un_count
 
+    '''
+    The DRUG function ~~~~~ use thread to realize MULTIPROCESS,
+    Remember change this variable to start multithreading.
+    '''
 
-    '''The DRUG function ~~~~~ use thread to realize MULTIPROCESS
-       Remember change this variable to start multiple procress'''
     @threads(30)
     def thread_job(self, driver_name):
         tStart = time.time()
 
-        # work_condition = Get_Condition()
         url = 'http://gps.uhooamber.com/address-to-lat-lng.html'
         line, address_f, unaddress_f, addr_file, unaddr_file = self.open_file(driver_name)
 
         '''singal procress'''
         # browser = get_web()
-        '''multiprocress - if we just have 1 class'''
-        # browser = self.get_driver(driver_name)
-        '''multiprocress - if we have 2 classes'''
-        # browser = work_condition.get_driver(driver_name)
-        '''multiprocress - we can do it with the method'''
         browser = self.get_driver(driver_name)
 
         browser.get(url)
+        '''*****'''
         js_execution = 'delayedLoop = function() {addressToLatLng(split[0]);}'
         browser.execute_script(js_execution)
         count, un_count = self.main_determine_job(browser, driver_name, line, addr_file, unaddr_file)
@@ -477,40 +507,48 @@ class Automatic_Web_Main_Work(Create_File, Get_Condition, Prevent_Machinary):
         print('-----------------------------------')
 
 
-'''Give the EntryPoint to start this program'''
+'''
+Give the EntryPoint to start this program
+'''
 if __name__ == '__main__':
     ans = input('Do you open the authorization to let this python program send gmail ? \
                  \nIf you need assistant, you can click the url below to check this. \
                  \nThe url of Google email about authorization setting: https://myaccount.google.com/security#activity \
                  \nPlease enter any key to start this program...')
-    '''In this variable, number of threads (number_thread) means we have to divide what number of file,
-       and we will open the number of web drivers'''
+    '''
+    In this variable, number of threads (number_thread) means we have to divide what number of file, and we will open 
+    the number of web drivers.
+    '''
     number_thread = 30
-    '''Our file we target to do something where it's path'''
-    target_file_path = 'D:/DataSource/Python/test/divide-test/location_data_2017.csv'
-    # target_path = 'D:/DataSource/Python/test/location_data_2017_test_'
-    '''Save all of file's path where it is in with list'''
-    '''No.1 method'''
-    # target_path_pool = []
-    # for num in range(number_thread):
-    #     target_path_pool.append(target_path + str('%003d' % num) + '.csv')
-    '''No.2 method'''
-    # target_path_pool = [(target_path + str(num) + '.csv') for num in range(number_thread)]
-    '''No.3 method'''
-    '''The path where save the data has been divided success and can begin to deal the data 
-       to be the data we want finally.'''
-    deal_data_file_dir = 'D:/DataSource/Python/test/divide-test/divide_finish_file/'
-    deal_data = Divide_Data()
+
+    '''
+    Our file we target to do something where its path.
+    '''
+    target_file_path = 'The path where you target divide to smaller size file to do something conveniently.'
+
+    '''
+    Save all of file's path where it is in this list.
+    The path (should be a folder is better) where save the data has been divided success and can begin to deal the data 
+    to be the data we want finally.
+    '''
+    deal_data_file_dir = 'The path save data you got'
+
+    deal_data = DivideData()
     deal_data.divide_data(target_file_path, number_thread, deal_data_file_dir)
 
-    '''We finish and got the data we want, we save the files it should be in it's path'''
-    finish_path_dir = 'D:/DataSource/Python/test/divide-test/'
-    gmail_user = 'BULLS23MJ1991@gmail.com'
-    gmail_password = '231991AJ6'
-    recipient = 'BULLS23MJ1991@gmail.com'
+    '''
+    We finish and got the data we want, we save the files it should be in its path.
+    '''
+    finish_path_dir = 'The path save all finish data file and error message text'
+    gmail_user = 'Your email user'
+    gmail_password = 'Your email password'
+    recipient = 'The email of recipient, if error happen, who you want to send'
 
-    '''? I want to send parameters to the class, but ..., the question is : does it operate ?'''
-    work = Automatic_Web_Main_Work(finish_path=finish_path_dir, gmail_user=gmail_user, gmail_password=gmail_password, recipient=recipient, target_path_dir=deal_data_file_dir)
+    work = AutomaticWebMainWork(finish_path=finish_path_dir,
+                                gmail_user=gmail_user,
+                                gmail_password=gmail_password,
+                                recipient=recipient,
+                                target_path_dir=deal_data_file_dir)
 
     '''version 1 method'''
     # web_name = ['firefox', 'chrome', 'phantomjs']
