@@ -197,22 +197,25 @@ what we will do, or if not we want, what we will do.
 
 
 class PreventMachinary(Parameter):
-    def __init__(self, finish_path, gmail_user, gmail_password, recipient):
+    def __init__(self, finish_path, gmail_user, gmail_password, recipient, lock):
         super(PreventMachinary, self).__init__(finish_path=finish_path, gmail_user=gmail_user, gmail_password=gmail_password, recipient=recipient)
+        self.lock = lock
     
     '''
     If address data we want is error or have some problem, execute this function to save data to retry or do something 
     next time.
     '''
 
-    def no_address(self, un_count, driver_name, address, unaddr_file, browser):
+    def no_address(self, un_count, driver_name, address, browser):
         db_obj.build_table(no_addr_table_name, connect_db, command_db)
         print('No.' + str(un_count) + ' address with ' + str(driver_name))
         print('this address just in wormhole.')
         print('-----------------------------------')
         unaddress_list = [address]
         # unaddr_file.writerow(unaddress_list)
-        db_obj.insert_data(no_addr_table_name, connect_db, unaddress_list)
+        self.lock.acquire()
+        db_obj.insert_data(no_addr_table_name, command_db, unaddress_list)
+        self.lock.release()
         if un_count % 2 == 0:
             time.sleep(1)
             browser.refresh()
@@ -231,15 +234,17 @@ class PreventMachinary(Parameter):
     Sometimes, we may got strange results like (0, 0), if our data are from USA, it's impossible, so some data kind of 
     this we call it except address, should be to do something like unknowable address.
     '''
-    def except_address(self, un_count, driver_name, address, data, unaddr_file, browser):
+    def except_address(self, un_count, driver_name, address, data, browser):
         print('No.' + str(un_count) + ' address with ' + str(driver_name))
         print(address)
         print(data)
         print('this address is abnormal.')
         print('-----------------------------------')
         unaddress_list = [address]
-        unaddr_file.writerow(unaddress_list)
-        db_obj.insert_data()
+        # unaddr_file.writerow(unaddress_list)
+        self.lock.acquire()
+        db_obj.insert_data(no_addr_table_name, command_db, unaddress_list)
+        self.lock.release()
         if un_count % 2 == 0:
             time.sleep(1)
             browser.refresh()
@@ -257,7 +262,7 @@ class PreventMachinary(Parameter):
     '''
     If address data we want is correct, then save data.
     '''
-    def address(self, count, driver_name, address, data, data_list, addr_file, browser):
+    def address(self, count, driver_name, address, data, data_list, browser):
         print('No.' + str(count) + ' address with ' + str(driver_name))
         print(address)
         print(data)
@@ -265,8 +270,11 @@ class PreventMachinary(Parameter):
         address_list = [address, data]
         data_list.append(address_list)
         if count % 30 == 0:
+            self.lock.acquire()
             for index in range(len(data_list) - 30, len(data_list)):
-                addr_file.writerow(data_list[index])
+                # addr_file.writerow(data_list[index])
+                db_obj.insert_data(addr_table_name, command_db, data_list)
+            self.lock.release()
             print('get ' + str(count) + ' data with ' + str(driver_name))
             print('-----------------------------------')
         if count % 105 == 0:
@@ -404,6 +412,23 @@ class CreateFile(Parameter):
         return line, address_f, unaddress_f, addr_file, unaddr_file
 
 
+class ReadData:
+    def __init__(self, target_path_dir):
+        self.target_path_dir = target_path_dir
+
+
+    def read_file(self, name):
+        name_string = str(name)
+        num_file = int(name_string[-3:])
+        path_string = str(os.listdir(self.target_path_dir)[num_file])
+        if name_string[-3:] == path_string[-7:-4]:
+            original_address = os.path.join(self.target_path_dir, path_string)
+            with open(original_address, 'r') as f1:
+                line = f1.readlines()
+                print('test-read')
+            return line
+
+
 '''
 Build a database and its type is sqlite currently.
 This database will be used to save data in this, and than, because after data has been translated, it may be create two 
@@ -473,10 +498,10 @@ class AutomaticWebMainWork(CreateFile, WebDriver, PreventMachinary):
                 # data = self.automatic_control_web(browser, address, count)
                 data = self.automatic_control_web(browser, address)
                 if '查無經緯度' in data:
-                    self.no_address(un_count, driver_name, address, unaddr_file, browser)
+                    self.no_address(un_count, driver_name, address, browser)
                     un_count += 1
                 elif '0,0' in data:
-                    self.except_address(un_count, driver_name, address, data, unaddr_file, browser)
+                    self.except_address(un_count, driver_name, address, data, browser)
                     un_count += 1
                 elif data is None:
                     time.sleep(4)
@@ -484,13 +509,13 @@ class AutomaticWebMainWork(CreateFile, WebDriver, PreventMachinary):
                     if again_data is None:
                         continue
                     elif again_data == '查無經緯度':
-                        self.no_address(un_count, driver_name, address, unaddr_file, browser)
+                        self.no_address(un_count, driver_name, address, browser)
                         un_count += 1
                     else:
-                        self.address(count, driver_name, address, again_data, data_list, addr_file, browser)
+                        self.address(count, driver_name, address, again_data, data_list, browser)
                         count += 1
                 else:
-                    self.address(count, driver_name, address, data, data_list, addr_file, browser)
+                    self.address(count, driver_name, address, data, data_list, browser)
                     count += 1
             except BaseException as e:
                 print(str(driver_name) + ' - BaseException : \n', e)
@@ -548,9 +573,11 @@ This is the second method type to realize multiple threding. Why use this? Becau
 
 
 class AutomaticWebMainWorkThread(threading.Thread, WebDriver, PreventMachinary):
-    def __init__(self):
+    def __init__(self, finish_path, gmail_user, gmail_password, recipient, target_path_dir, lock):
         threading.Thread.__init__(self)
-        super(AutomaticWebMainWorkThread, self).__init__()
+        super(AutomaticWebMainWorkThread, self).__init__(finish_path, gmail_user, gmail_password, recipient)
+        self.target_path_dir = target_file_path
+        self.lock = lock
 
 
     def automatic_control_web(self, browser, address):
@@ -574,7 +601,7 @@ class AutomaticWebMainWorkThread(threading.Thread, WebDriver, PreventMachinary):
     '''
     Determine the data we got and save date in their csv files
     '''
-    def main_determine_job(self, browser, driver_name, line, addr_file, unaddr_file):
+    def main_determine_job(self, browser, driver_name, line):
         count = 1
         un_count = 1
         fail = 1
@@ -585,10 +612,10 @@ class AutomaticWebMainWorkThread(threading.Thread, WebDriver, PreventMachinary):
                 # data = self.automatic_control_web(browser, address, count)
                 data = self.automatic_control_web(browser, address)
                 if '查無經緯度' in data:
-                    self.no_address(un_count, driver_name, address, unaddr_file, browser)
+                    self.no_address(un_count, driver_name, address, browser)
                     un_count += 1
                 elif '0,0' in data:
-                    self.except_address(un_count, driver_name, address, data, unaddr_file, browser)
+                    self.except_address(un_count, driver_name, address, data, browser)
                     un_count += 1
                 elif data is None:
                     time.sleep(4)
@@ -596,13 +623,13 @@ class AutomaticWebMainWorkThread(threading.Thread, WebDriver, PreventMachinary):
                     if again_data is None:
                         continue
                     elif again_data == '查無經緯度':
-                        self.no_address(un_count, driver_name, address, unaddr_file, browser)
+                        self.no_address(un_count, driver_name, address, browser)
                         un_count += 1
                     else:
-                        self.address(count, driver_name, address, again_data, data_list, addr_file, browser)
+                        self.address(count, driver_name, address, again_data, data_list, browser)
                         count += 1
                 else:
-                    self.address(count, driver_name, address, data, data_list, addr_file, browser)
+                    self.address(count, driver_name, address, data, data_list, browser)
                     count += 1
             except BaseException as e:
                 print(str(driver_name) + ' - BaseException : \n', e)
@@ -620,30 +647,32 @@ class AutomaticWebMainWorkThread(threading.Thread, WebDriver, PreventMachinary):
         tStart = time.time()
 
         url = 'http://gps.uhooamber.com/address-to-lat-lng.html'
-        line, address_f, unaddress_f, addr_file, unaddr_file = self.open_file(driver_name)
+        # line, address_f, unaddress_f, addr_file, unaddr_file = self.open_file(driver_name)
+        rd = ReadData(self.target_path_dir)
+        read_data_line = rd.read_file(self.getName())
 
         '''singal procress'''
         # browser = get_web()
-        browser = self.get_driver(driver_name)
+        browser = self.get_driver(self.getName())
 
         browser.get(url)
         '''*****'''
         js_execution = 'delayedLoop = function() {addressToLatLng(split[0]);}'
         browser.execute_script(js_execution)
-        count, un_count = self.main_determine_job(browser, driver_name, line, addr_file, unaddr_file)
+        count, un_count = self.main_determine_job(browser, self.getName(), read_data_line)
 
-        unaddress_f.close()
-        address_f.close()
+        # unaddress_f.close()
+        # address_f.close()
         browser.quit()
 
         tEnd = time.time()
-        print('We get ' + str(count) + ' addresses with ' + str(driver_name))
-        print('We have ' + str(un_count) + ' unknowable addresses with ' + str(driver_name))
+        print('We get ' + str(count) + ' addresses with ' + str(self.getName()))
+        print('We have ' + str(un_count) + ' unknowable addresses with ' + str(self.getName()))
         total_time = tEnd - tStart
         day, hour, minute, second = self.calculate_time(total_time)
         # print('Total time : ' + str(tEnd-tStart) + ' seconds with ' + str(driver_name))
-        print('Total time : ' + str(day) + ' days, ' + str(hour) + ' hours, ' + str(minute) + ' minutes, ' + str(second) + ' seconds with ' + str(driver_name))
-        print(str(driver_name) + ' end.')
+        print('Total time : ' + str(day) + ' days, ' + str(hour) + ' hours, ' + str(minute) + ' minutes, ' + str(second) + ' seconds with ' + str(self.getName()))
+        print(str(self.getName()) + ' end.')
         print('Finish')
         print('-----------------------------------')
 
@@ -687,24 +716,24 @@ if __name__ == '__main__':
 
     '''This is multithreading method with tomorrow package: '''
 
-    work = AutomaticWebMainWork(finish_path=finish_path_dir,
-                                gmail_user=gmail_user,
-                                gmail_password=gmail_password,
-                                recipient=recipient,
-                                target_path_dir=deal_data_file_dir)
-
-    '''version 1 method'''
-    # web_name = ['firefox', 'chrome', 'phantomjs']
-    '''version 2 method'''
-    # web_name = ['chrome', 'Chrome', 'cHrome', 'chRome', 'chrOme']
-    '''version 3 - No.1 method'''
-    web_name = []
-    for j in range(number_thread):
-        web_name.append('chrome-' + str('%003d' % j))
-    '''version 3 - No.2 method'''
-    # web_name = [('chrome-' + str('%003d' % j)) for j in range(number_thread)]
-    for i in web_name:
-        work.thread_job(i)
+    # work = AutomaticWebMainWork(finish_path=finish_path_dir,
+    #                             gmail_user=gmail_user,
+    #                             gmail_password=gmail_password,
+    #                             recipient=recipient,
+    #                             target_path_dir=deal_data_file_dir)
+    #
+    # '''version 1 method'''
+    # # web_name = ['firefox', 'chrome', 'phantomjs']
+    # '''version 2 method'''
+    # # web_name = ['chrome', 'Chrome', 'cHrome', 'chRome', 'chrOme']
+    # '''version 3 - No.1 method'''
+    # web_name = []
+    # for j in range(number_thread):
+    #     web_name.append('chrome-' + str('%003d' % j))
+    # '''version 3 - No.2 method'''
+    # # web_name = [('chrome-' + str('%003d' % j)) for j in range(number_thread)]
+    # for i in web_name:
+    #     work.thread_job(i)
 
 
     '''End here.'''
@@ -718,10 +747,18 @@ if __name__ == '__main__':
     db_obj.build_table(no_addr_table_name, connect_db, command_db)
     db_obj.build_table(addr_table_name, connect_db, command_db)
 
+    thread_lock = threading.Lock()
+
     threads_list = []
     for j in range(number_thread):
         threads_list.append(AutomaticWebMainWorkThread(finish_path=finish_path_dir,
                                                        gmail_user=gmail_user,
                                                        gmail_password=gmail_password,
                                                        recipient=recipient,
-                                                       target_path_dir=deal_data_file_dir))
+                                                       target_path_dir=deal_data_file_dir,
+                                                       lock=thread_lock))
+        threads_list[j].setName('work-'+str('%003d' % (j-1)))
+        threads_list[j].start()
+
+    for j in range(number_thread):
+        threads_list[j].join()
